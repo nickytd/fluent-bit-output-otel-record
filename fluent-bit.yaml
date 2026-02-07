@@ -1,0 +1,42 @@
+service:
+  http_server: "on"
+  log_level: info
+
+pipeline:
+  inputs:
+     - name: dummy
+       tag: test
+       dummy: '{ "level": "info","log": "Running output plugin" }'
+       samples: 1
+       processors:
+        logs:
+          - name: opentelemetry_envelope
+          - name: content_modifier
+            context: otel_resource_attributes
+            action: upsert
+            key: service.name
+            value: random
+          - name:  content_modifier
+            context: otel_scope_name
+            action: upsert
+            value: gstdout
+          - name: content_modifier
+            context: otel_scope_version
+            action: upsert
+            value: 0.0.0-dev
+
+
+  filters:
+    - name: lua
+      match: "*"
+      call: append_tag
+      code: |
+        function append_tag(tag, timestamp, record)
+           new_record = record
+           new_record["tag"] = tag
+           return 1, timestamp, new_record
+        end
+
+  outputs:
+    - name: gstdout
+      match: "*"
